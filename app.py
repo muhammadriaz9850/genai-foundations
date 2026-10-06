@@ -1,88 +1,92 @@
 import streamlit as st
-from ai_engine import AIEngine
 from langchain_core.messages import HumanMessage, AIMessage
+from ai_engine import ChatBotEngine
 
-# Page configuration for a modern, professional look
+# --- Page Configuration ---
 st.set_page_config(
-    page_title="AI Assistant",
+    page_title="GenAI Assistant",
     page_icon="🤖",
     layout="centered"
 )
 
-# Custom CSS for polished UI
+# Custom CSS for a more polished look
 st.markdown("""
     <style>
-        .stChatMessage {
-            border-radius: 15px;
-            padding: 10px;
-            margin-bottom: 10px;
-        }
-        .main {
-            max-width: 800px;
-            margin: 0 auto;
-        }
+    .stChatMessage {
+        border-radius: 15px;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+    .main {
+        background-color: #f8f9fa;
+    }
     </style>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-def main():
-    st.title("🤖 Modern AI Assistant")
-    st.caption("Powered by Ollama and LangChain")
+# --- Initialization ---
+if "bot_engine" not in st.session_state:
+    st.session_state.bot_engine = ChatBotEngine()
 
-    # Initialize AI Engine
-    if "ai_engine" not in st.session_state:
-        st.session_state.ai_engine = AIEngine()
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-    # Initialize Chat History
-    if "messages" not in st.session_state:
-        st.session_state.messages = st.session_state.ai_engine.get_initial_messages()
+# --- Sidebar ---
+with st.sidebar:
+    st.title("🤖 AI Configuration")
+    st.info("This app uses a custom LangChain engine powered by Ollama.")
 
-    # Sidebar for settings and controls
-    with st.sidebar:
-        st.header("Controls")
-        if st.button("Clear Chat History", use_container_width=True):
-            st.session_state.messages = st.session_state.ai_engine.get_initial_messages()
-            st.rerun()
+    if st.button("Clear Chat History"):
+        st.session_state.messages = []
+        st.rerun()
 
-        st.divider()
-        st.info("This app uses the `qwen:0.5b` model via Ollama for fast, local inference.")
+    st.divider()
+    st.markdown("### Model Settings")
+    # Temperature slider
+    temp = st.slider("Temperature", min_value=0.0, max_value=1.0, value=0.1, step=0.1)
 
-    # Display chat messages (skip the system message)
-    for msg in st.session_state.messages:
-        if isinstance(msg, (HumanMessage, AIMessage)):
-            role = "user" if isinstance(msg, HumanMessage) else "assistant"
-            with st.chat_message(role):
-                st.markdown(msg.content)
+    # Use getattr to avoid crash if the session_state object was created before the class change
+    current_temp = getattr(st.session_state.bot_engine, 'temperature', 0.1)
+    if temp != current_temp:
+        st.session_state.bot_engine.update_temperature(temp)
 
-    # Chat input
-    if prompt := st.chat_input("Type your message here..."):
-        # Display user message
-        with st.chat_message("user"):
-            st.markdown(prompt)
+    st.divider()
+    st.markdown("### About")
+    st.write("A professional Streamlit interface for the GenAI Foundations project.")
 
-        # Add to session state
-        st.session_state.messages.append(HumanMessage(content=prompt))
+# --- Main UI ---
+st.title("GenAI Chatbot")
+st.caption("Experience a modern, streaming AI assistant powered by LangChain and Ollama.")
 
-        # Generate AI response with streaming
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
-            full_response = ""
+# Display chat history
+for message in st.session_state.messages:
+    role = "user" if isinstance(message, HumanMessage) else "assistant"
+    with st.chat_message(role):
+        st.markdown(message.content)
 
-            try:
-                with st.spinner("Thinking..."):
-                    # Start streaming
-                    for chunk in st.session_state.ai_engine.stream_response(st.session_state.messages):
-                        full_response += chunk
-                        message_placeholder.markdown(full_response + "▌")
+# Chat input
+if prompt := st.chat_input("How can I help you today?"):
+    # Add user message to state and display
+    st.session_state.messages.append(HumanMessage(content=prompt))
+    with st.chat_message("user"):
+        st.markdown(prompt)
 
-                    # Final update without cursor
-                    message_placeholder.markdown(full_response)
+    # Generate and stream assistant response
+    with st.chat_message("assistant"):
+        response_placeholder = st.empty()
+        full_response = ""
 
-                # Add AI response to session state
-                st.session_state.messages.append(AIMessage(content=full_response))
+        try:
+            with st.spinner("Thinking..."):
+                # Use the engine's stream method
+                for chunk in st.session_state.bot_engine.get_response_stream(st.session_state.messages):
+                    full_response += chunk
+                    response_placeholder.markdown(full_response + "▌")
 
-            except Exception as e:
-                st.error(f"An error occurred: {str(e)}")
-                st.info("Please ensure Ollama is running locally.")
+                response_placeholder.markdown(full_response)
 
-if __name__ == "__main__":
-    main()
+            # Add assistant message to history
+            st.session_state.messages.append(AIMessage(content=full_response))
+
+        except Exception as e:
+            st.error(f"An error occurred: {str(e)}")
+            # Optional: Log error here

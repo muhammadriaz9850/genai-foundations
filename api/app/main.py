@@ -1,8 +1,14 @@
+import os
+from dotenv import load_dotenv
+from langchain.chat_models import init_chat_model
 from langchain_ollama import ChatOllama
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
-llm = ChatOllama(
-    model="qwen:0.5b",
+load_dotenv()
+
+llm = init_chat_model(
+    model=os.getenv("MODEL_NAME"),
+    model_provider="ollama",
     temperature=0.1
 )
 messages = [
