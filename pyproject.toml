@@ -1,0 +1,13 @@
+[project]
+name = "genai-foundartions"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Muhammad Riaz", email = "mianriaz9850@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "langchain-ollama>=1.1.0",
+    "streamlit>=1.65.0",
+]
